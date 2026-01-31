@@ -1,0 +1,255 @@
+"""
+Views (Controllers) for Tasks API.
+
+This layer handles HTTP requests and responses,
+delegating business logic to the service layer.
+"""
+
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.request import Request
+
+from .models import Task, Category, Subtask
+from .serializers import (
+    TaskSerializer,
+    TaskCreateSerializer,
+    TaskUpdateSerializer,
+    TaskStatusSerializer,
+    CategorySerializer,
+    SubtaskSerializer,
+    SubtaskCreateSerializer,
+)
+from .services import TaskService, CategoryService, SubtaskService
+
+
+class CategoryViewSet(viewsets.ViewSet):
+    """
+    ViewSet for Category CRUD operations.
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.service = CategoryService()
+    
+    def list(self, request: Request) -> Response:
+        """List all categories."""
+        categories = self.service.get_all_categories()
+        serializer = CategorySerializer(categories, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request: Request) -> Response:
+        """Create a new category."""
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            category = self.service.create_category(serializer.validated_data)
+            response_serializer = CategorySerializer(category)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def retrieve(self, request: Request, pk: int = None) -> Response:
+        """Retrieve a category by ID."""
+        category = self.service.get_category_by_id(pk)
+        if not category:
+            return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CategorySerializer(category)
+        return Response(serializer.data)
+    
+    def update(self, request: Request, pk: int = None) -> Response:
+        """Update a category."""
+        serializer = CategorySerializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            category = self.service.update_category(pk, serializer.validated_data)
+            if not category:
+                return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+            response_serializer = CategorySerializer(category)
+            return Response(response_serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request: Request, pk: int = None) -> Response:
+        """Delete a category."""
+        deleted = self.service.delete_category(pk)
+        if not deleted:
+            return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SubtaskViewSet(viewsets.ViewSet):
+    """
+    ViewSet for Subtask operations.
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.service = SubtaskService()
+    
+    def create(self, request: Request, task_pk: int = None) -> Response:
+        """Create a subtask for a task."""
+        serializer = SubtaskCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            subtask = self.service.create_subtask(task_pk, serializer.validated_data)
+            response_serializer = SubtaskSerializer(subtask)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def update(self, request: Request, task_pk: int = None, pk: int = None) -> Response:
+        """Update a subtask."""
+        serializer = SubtaskSerializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            subtask = self.service.update_subtask(pk, serializer.validated_data)
+            if not subtask:
+                return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
+            response_serializer = SubtaskSerializer(subtask)
+            return Response(response_serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def destroy(self, request: Request, task_pk: int = None, pk: int = None) -> Response:
+        """Delete a subtask."""
+        deleted = self.service.delete_subtask(pk)
+        if not deleted:
+            return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['post'])
+    def toggle(self, request: Request, task_pk: int = None, pk: int = None) -> Response:
+        """Toggle subtask completion."""
+        subtask = self.service.toggle_subtask(pk)
+        if not subtask:
+            return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = SubtaskSerializer(subtask)
+        return Response(serializer.data)
+
+
+class TaskViewSet(viewsets.ViewSet):
+    """
+    ViewSet for Task CRUD operations.
+    
+    Provides endpoints for:
+    - GET /api/tasks/ - List all tasks
+    - POST /api/tasks/ - Create a new task
+    - GET /api/tasks/{id}/ - Retrieve a task
+    - PUT /api/tasks/{id}/ - Update a task
+    - DELETE /api/tasks/{id}/ - Delete a task
+    - POST /api/tasks/{id}/toggle/ - Toggle task completion
+    - GET /api/tasks/statistics/ - Get task statistics
+    - GET /api/tasks/calendar/ - Get tasks for calendar view
+    """
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.service = TaskService()
+    
+    def list(self, request: Request) -> Response:
+        """
+        List all tasks with optional filtering.
+        
+        Query Parameters:
+            - status: Filter by status (pending, in_progress, completed)
+            - priority: Filter by priority (low, medium, high)
+            - category: Filter by category ID
+            - search: Search in title and description
+        """
+        filters = {
+            'status': request.query_params.get('status'),
+            'priority': request.query_params.get('priority'),
+            'category': request.query_params.get('category'),
+            'search': request.query_params.get('search'),
+        }
+        # Remove None values
+        filters = {k: v for k, v in filters.items() if v is not None}
+        
+        tasks = self.service.get_all_tasks(filters if filters else None)
+        serializer = TaskSerializer(tasks, many=True)
+        return Response(serializer.data)
+    
+    def create(self, request: Request) -> Response:
+        """Create a new task."""
+        serializer = TaskCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            task = self.service.create_task(serializer.validated_data)
+            response_serializer = TaskSerializer(task)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def retrieve(self, request: Request, pk: int = None) -> Response:
+        """Retrieve a single task by ID."""
+        task = self.service.get_task_by_id(pk)
+        if not task:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = TaskSerializer(task)
+        return Response(serializer.data)
+    
+    def update(self, request: Request, pk: int = None) -> Response:
+        """Update an existing task."""
+        serializer = TaskUpdateSerializer(data=request.data, partial=True)
+        if serializer.is_valid():
+            task = self.service.update_task(pk, serializer.validated_data)
+            if not task:
+                return Response(
+                    {'error': 'Task not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            response_serializer = TaskSerializer(task)
+            return Response(response_serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def partial_update(self, request: Request, pk: int = None) -> Response:
+        """Partially update an existing task."""
+        return self.update(request, pk)
+    
+    def destroy(self, request: Request, pk: int = None) -> Response:
+        """Delete a task."""
+        deleted = self.service.delete_task(pk)
+        if not deleted:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['post'])
+    def toggle(self, request: Request, pk: int = None) -> Response:
+        """Toggle task completion status."""
+        task = self.service.toggle_task_status(pk)
+        if not task:
+            return Response(
+                {'error': 'Task not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        serializer = TaskSerializer(task)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def statistics(self, request: Request) -> Response:
+        """Get task statistics."""
+        stats = self.service.get_task_statistics()
+        return Response(stats)
+    
+    @action(detail=False, methods=['get'])
+    def calendar(self, request: Request) -> Response:
+        """
+        Get tasks grouped by date for calendar view.
+        
+        Query Parameters:
+            - year: Year (default: current year)
+            - month: Month (default: current month)
+        """
+        from datetime import datetime
+        
+        year = int(request.query_params.get('year', datetime.now().year))
+        month = int(request.query_params.get('month', datetime.now().month))
+        
+        tasks_by_date = self.service.get_tasks_for_month(year, month)
+        
+        # Serialize tasks
+        result = {}
+        for date_key, tasks in tasks_by_date.items():
+            result[date_key] = TaskSerializer(tasks, many=True).data
+        
+        return Response(result)
