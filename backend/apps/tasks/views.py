@@ -9,6 +9,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Task, Category, Subtask
 from .serializers import (
@@ -27,14 +28,15 @@ class CategoryViewSet(viewsets.ViewSet):
     """
     ViewSet for Category CRUD operations.
     """
+    permission_classes = [IsAuthenticated]
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.service = CategoryService()
+    def get_service(self, request):
+        return CategoryService(user=request.user)
     
     def list(self, request: Request) -> Response:
         """List all categories."""
-        categories = self.service.get_all_categories()
+        service = self.get_service(request)
+        categories = service.get_all_categories()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
     
@@ -42,14 +44,16 @@ class CategoryViewSet(viewsets.ViewSet):
         """Create a new category."""
         serializer = CategorySerializer(data=request.data)
         if serializer.is_valid():
-            category = self.service.create_category(serializer.validated_data)
+            service = self.get_service(request)
+            category = service.create_category(serializer.validated_data)
             response_serializer = CategorySerializer(category)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def retrieve(self, request: Request, pk: int = None) -> Response:
         """Retrieve a category by ID."""
-        category = self.service.get_category_by_id(pk)
+        service = self.get_service(request)
+        category = service.get_category_by_id(pk)
         if not category:
             return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
         serializer = CategorySerializer(category)
@@ -59,7 +63,8 @@ class CategoryViewSet(viewsets.ViewSet):
         """Update a category."""
         serializer = CategorySerializer(data=request.data, partial=True)
         if serializer.is_valid():
-            category = self.service.update_category(pk, serializer.validated_data)
+            service = self.get_service(request)
+            category = service.update_category(pk, serializer.validated_data)
             if not category:
                 return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
             response_serializer = CategorySerializer(category)
@@ -68,7 +73,8 @@ class CategoryViewSet(viewsets.ViewSet):
     
     def destroy(self, request: Request, pk: int = None) -> Response:
         """Delete a category."""
-        deleted = self.service.delete_category(pk)
+        service = self.get_service(request)
+        deleted = service.delete_category(pk)
         if not deleted:
             return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -78,16 +84,17 @@ class SubtaskViewSet(viewsets.ViewSet):
     """
     ViewSet for Subtask operations.
     """
+    permission_classes = [IsAuthenticated]
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.service = SubtaskService()
+    def get_service(self, request):
+        return SubtaskService(user=request.user)
     
     def create(self, request: Request, task_pk: int = None) -> Response:
         """Create a subtask for a task."""
         serializer = SubtaskCreateSerializer(data=request.data)
         if serializer.is_valid():
-            subtask = self.service.create_subtask(task_pk, serializer.validated_data)
+            service = self.get_service(request)
+            subtask = service.create_subtask(task_pk, serializer.validated_data)
             response_serializer = SubtaskSerializer(subtask)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -96,7 +103,8 @@ class SubtaskViewSet(viewsets.ViewSet):
         """Update a subtask."""
         serializer = SubtaskSerializer(data=request.data, partial=True)
         if serializer.is_valid():
-            subtask = self.service.update_subtask(pk, serializer.validated_data)
+            service = self.get_service(request)
+            subtask = service.update_subtask(pk, serializer.validated_data)
             if not subtask:
                 return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
             response_serializer = SubtaskSerializer(subtask)
@@ -105,7 +113,8 @@ class SubtaskViewSet(viewsets.ViewSet):
     
     def destroy(self, request: Request, task_pk: int = None, pk: int = None) -> Response:
         """Delete a subtask."""
-        deleted = self.service.delete_subtask(pk)
+        service = self.get_service(request)
+        deleted = service.delete_subtask(pk)
         if not deleted:
             return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -113,7 +122,8 @@ class SubtaskViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['post'])
     def toggle(self, request: Request, task_pk: int = None, pk: int = None) -> Response:
         """Toggle subtask completion."""
-        subtask = self.service.toggle_subtask(pk)
+        service = self.get_service(request)
+        subtask = service.toggle_subtask(pk)
         if not subtask:
             return Response({'error': 'Subtask not found'}, status=status.HTTP_404_NOT_FOUND)
         serializer = SubtaskSerializer(subtask)
@@ -134,10 +144,10 @@ class TaskViewSet(viewsets.ViewSet):
     - GET /api/tasks/statistics/ - Get task statistics
     - GET /api/tasks/calendar/ - Get tasks for calendar view
     """
+    permission_classes = [IsAuthenticated]
     
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.service = TaskService()
+    def get_service(self, request):
+        return TaskService(user=request.user)
     
     def list(self, request: Request) -> Response:
         """
@@ -158,7 +168,8 @@ class TaskViewSet(viewsets.ViewSet):
         # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
         
-        tasks = self.service.get_all_tasks(filters if filters else None)
+        service = self.get_service(request)
+        tasks = service.get_all_tasks(filters if filters else None)
         serializer = TaskSerializer(tasks, many=True)
         return Response(serializer.data)
     
@@ -166,7 +177,8 @@ class TaskViewSet(viewsets.ViewSet):
         """Create a new task."""
         serializer = TaskCreateSerializer(data=request.data)
         if serializer.is_valid():
-            task = self.service.create_task(serializer.validated_data)
+            service = self.get_service(request)
+            task = service.create_task(serializer.validated_data)
             response_serializer = TaskSerializer(task)
             return Response(
                 response_serializer.data,
@@ -176,7 +188,8 @@ class TaskViewSet(viewsets.ViewSet):
     
     def retrieve(self, request: Request, pk: int = None) -> Response:
         """Retrieve a single task by ID."""
-        task = self.service.get_task_by_id(pk)
+        service = self.get_service(request)
+        task = service.get_task_by_id(pk)
         if not task:
             return Response(
                 {'error': 'Task not found'},
@@ -189,7 +202,8 @@ class TaskViewSet(viewsets.ViewSet):
         """Update an existing task."""
         serializer = TaskUpdateSerializer(data=request.data, partial=True)
         if serializer.is_valid():
-            task = self.service.update_task(pk, serializer.validated_data)
+            service = self.get_service(request)
+            task = service.update_task(pk, serializer.validated_data)
             if not task:
                 return Response(
                     {'error': 'Task not found'},
@@ -205,7 +219,8 @@ class TaskViewSet(viewsets.ViewSet):
     
     def destroy(self, request: Request, pk: int = None) -> Response:
         """Delete a task."""
-        deleted = self.service.delete_task(pk)
+        service = self.get_service(request)
+        deleted = service.delete_task(pk)
         if not deleted:
             return Response(
                 {'error': 'Task not found'},
@@ -216,7 +231,8 @@ class TaskViewSet(viewsets.ViewSet):
     @action(detail=True, methods=['post'])
     def toggle(self, request: Request, pk: int = None) -> Response:
         """Toggle task completion status."""
-        task = self.service.toggle_task_status(pk)
+        service = self.get_service(request)
+        task = service.toggle_task_status(pk)
         if not task:
             return Response(
                 {'error': 'Task not found'},
@@ -228,7 +244,8 @@ class TaskViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def statistics(self, request: Request) -> Response:
         """Get task statistics."""
-        stats = self.service.get_task_statistics()
+        service = self.get_service(request)
+        stats = service.get_task_statistics()
         return Response(stats)
     
     @action(detail=False, methods=['get'])
@@ -245,7 +262,8 @@ class TaskViewSet(viewsets.ViewSet):
         year = int(request.query_params.get('year', datetime.now().year))
         month = int(request.query_params.get('month', datetime.now().month))
         
-        tasks_by_date = self.service.get_tasks_for_month(year, month)
+        service = self.get_service(request)
+        tasks_by_date = service.get_tasks_for_month(year, month)
         
         # Serialize tasks
         result = {}

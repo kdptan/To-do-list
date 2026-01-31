@@ -7,12 +7,18 @@ Models should be as pure as possible with minimal dependencies.
 
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 
 class Category(models.Model):
     """
     Category entity for organizing tasks.
     """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='categories'
+    )
     name = models.CharField(max_length=100)
     icon = models.CharField(max_length=10, default='📁')  # Emoji icon
     color = models.CharField(max_length=7, default='#6b7280')  # Hex color
@@ -45,6 +51,13 @@ class Task(models.Model):
         PENDING = 'pending', 'Pending'
         IN_PROGRESS = 'in_progress', 'In Progress'
         COMPLETED = 'completed', 'Completed'
+    
+    # User ownership
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='tasks'
+    )
     
     # Core fields
     title = models.CharField(max_length=255)

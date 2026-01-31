@@ -8,25 +8,33 @@ the domain and data mapping layers.
 
 from typing import List, Optional
 from django.db.models import QuerySet, Q
+from django.contrib.auth.models import User
 from .models import Task, Category, Subtask
 
 
 class CategoryRepository:
     """Repository for Category data access operations."""
     
-    def __init__(self):
+    def __init__(self, user: User = None):
         self.model = Category
+        self.user = user
     
     def get_all(self) -> QuerySet[Category]:
-        return self.model.objects.all()
+        if self.user:
+            return self.model.objects.filter(user=self.user)
+        return self.model.objects.none()
     
     def get_by_id(self, category_id: int) -> Optional[Category]:
         try:
-            return self.model.objects.get(id=category_id)
+            if self.user:
+                return self.model.objects.get(id=category_id, user=self.user)
+            return None
         except self.model.DoesNotExist:
             return None
     
     def create(self, data: dict) -> Category:
+        if self.user:
+            data['user'] = self.user
         return self.model.objects.create(**data)
     
     def update(self, category: Category, data: dict) -> Category:
@@ -43,15 +51,20 @@ class CategoryRepository:
 class SubtaskRepository:
     """Repository for Subtask data access operations."""
     
-    def __init__(self):
+    def __init__(self, user: User = None):
         self.model = Subtask
+        self.user = user
     
     def get_by_task(self, task_id: int) -> QuerySet[Subtask]:
-        return self.model.objects.filter(task_id=task_id)
+        if self.user:
+            return self.model.objects.filter(task_id=task_id, task__user=self.user)
+        return self.model.objects.none()
     
     def get_by_id(self, subtask_id: int) -> Optional[Subtask]:
         try:
-            return self.model.objects.get(id=subtask_id)
+            if self.user:
+                return self.model.objects.get(id=subtask_id, task__user=self.user)
+            return None
         except self.model.DoesNotExist:
             return None
     
@@ -77,49 +90,69 @@ class TaskRepository:
     providing a clean interface for the service layer.
     """
     
-    def __init__(self):
+    def __init__(self, user: User = None):
         self.model = Task
+        self.user = user
     
     def get_all(self) -> QuerySet[Task]:
-        """Retrieve all tasks."""
-        return self.model.objects.all()
+        """Retrieve all tasks for the user."""
+        if self.user:
+            return self.model.objects.filter(user=self.user)
+        return self.model.objects.none()
     
     def get_by_id(self, task_id: int) -> Optional[Task]:
-        """Retrieve a task by its ID."""
+        """Retrieve a task by its ID for the user."""
         try:
-            return self.model.objects.get(id=task_id)
+            if self.user:
+                return self.model.objects.get(id=task_id, user=self.user)
+            return None
         except self.model.DoesNotExist:
             return None
     
     def get_by_status(self, status: str) -> QuerySet[Task]:
         """Retrieve tasks filtered by status."""
-        return self.model.objects.filter(status=status)
+        if self.user:
+            return self.model.objects.filter(status=status, user=self.user)
+        return self.model.objects.none()
     
     def get_by_priority(self, priority: str) -> QuerySet[Task]:
         """Retrieve tasks filtered by priority."""
-        return self.model.objects.filter(priority=priority)
+        if self.user:
+            return self.model.objects.filter(priority=priority, user=self.user)
+        return self.model.objects.none()
     
     def get_by_category(self, category_id: int) -> QuerySet[Task]:
         """Retrieve tasks filtered by category."""
-        return self.model.objects.filter(category_id=category_id)
+        if self.user:
+            return self.model.objects.filter(category_id=category_id, user=self.user)
+        return self.model.objects.none()
     
     def get_by_date_range(self, start_date, end_date) -> QuerySet[Task]:
         """Retrieve tasks with due dates in a range."""
-        return self.model.objects.filter(
-            due_date__gte=start_date,
-            due_date__lte=end_date
-        )
+        if self.user:
+            return self.model.objects.filter(
+                due_date__gte=start_date,
+                due_date__lte=end_date,
+                user=self.user
+            )
+        return self.model.objects.none()
     
     def get_pending(self) -> QuerySet[Task]:
         """Retrieve all pending tasks."""
-        return self.model.objects.filter(status=Task.Status.PENDING)
+        if self.user:
+            return self.model.objects.filter(status=Task.Status.PENDING, user=self.user)
+        return self.model.objects.none()
     
     def get_completed(self) -> QuerySet[Task]:
         """Retrieve all completed tasks."""
-        return self.model.objects.filter(status=Task.Status.COMPLETED)
+        if self.user:
+            return self.model.objects.filter(status=Task.Status.COMPLETED, user=self.user)
+        return self.model.objects.none()
     
     def create(self, data: dict) -> Task:
         """Create a new task."""
+        if self.user:
+            data['user'] = self.user
         return self.model.objects.create(**data)
     
     def update(self, task: Task, data: dict) -> Task:
@@ -144,19 +177,28 @@ class TaskRepository:
     
     def search(self, query: str) -> QuerySet[Task]:
         """Search tasks by title or description."""
-        return self.model.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query)
-        )
+        if self.user:
+            return self.model.objects.filter(
+                Q(title__icontains=query) |
+                Q(description__icontains=query),
+                user=self.user
+            )
+        return self.model.objects.none()
     
     def count(self) -> int:
         """Get total count of tasks."""
-        return self.model.objects.count()
+        if self.user:
+            return self.model.objects.filter(user=self.user).count()
+        return 0
     
     def count_by_status(self, status: str) -> int:
         """Get count of tasks by status."""
-        return self.model.objects.filter(status=status).count()
+        if self.user:
+            return self.model.objects.filter(status=status, user=self.user).count()
+        return 0
     
     def count_by_category(self, category_id: int) -> int:
         """Get count of tasks by category."""
-        return self.model.objects.filter(category_id=category_id).count()
+        if self.user:
+            return self.model.objects.filter(category_id=category_id, user=self.user).count()
+        return 0

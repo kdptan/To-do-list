@@ -7,6 +7,7 @@
 import React, { useState, useCallback } from 'react';
 import { Task, CreateTaskDTO, UpdateTaskDTO } from '@/domain';
 import { useTasks } from '../hooks';
+import { useAuth } from '../contexts';
 import {
   TaskList,
   TaskForm,
@@ -19,6 +20,7 @@ import {
 import toast from 'react-hot-toast';
 
 export const HomePage: React.FC = () => {
+  const { user, logout } = useAuth();
   const {
     tasks,
     statistics,
@@ -119,7 +121,7 @@ export const HomePage: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold text-theme-text">📝 To-Do List</h1>
               <p className="text-sm text-theme-text-muted mt-1">
-                Manage your tasks efficiently
+                Welcome, {user?.firstName || user?.username || 'User'}!
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -132,6 +134,19 @@ export const HomePage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
                 Add Task
+              </button>
+              <button
+                onClick={() => {
+                  logout();
+                  toast.success('Logged out successfully');
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Logout"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>

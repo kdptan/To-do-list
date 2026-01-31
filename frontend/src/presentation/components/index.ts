@@ -7,3 +7,4 @@ export * from './ThemeSelector';
 export * from './CategorySidebar';
 export * from './MiniCalendar';
 export * from './SubtaskList';
+export * from './GoogleSignInButton';

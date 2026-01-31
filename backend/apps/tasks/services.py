@@ -7,6 +7,7 @@ operations between the repository and the views.
 
 from typing import Dict, List, Optional, Any
 from django.utils import timezone
+from django.contrib.auth.models import User
 from datetime import datetime, timedelta, timezone as dt_timezone
 from .models import Task, Category, Subtask
 from .repositories import TaskRepository, CategoryRepository, SubtaskRepository
@@ -15,8 +16,8 @@ from .repositories import TaskRepository, CategoryRepository, SubtaskRepository
 class CategoryService:
     """Service class for Category operations."""
     
-    def __init__(self):
-        self.repository = CategoryRepository()
+    def __init__(self, user: User = None):
+        self.repository = CategoryRepository(user=user)
     
     def get_all_categories(self) -> List[Category]:
         return list(self.repository.get_all())
@@ -43,8 +44,8 @@ class CategoryService:
 class SubtaskService:
     """Service class for Subtask operations."""
     
-    def __init__(self):
-        self.repository = SubtaskRepository()
+    def __init__(self, user: User = None):
+        self.repository = SubtaskRepository(user=user)
     
     def get_subtasks_by_task(self, task_id: int) -> List[Subtask]:
         return list(self.repository.get_by_task(task_id))
@@ -80,8 +81,8 @@ class TaskService:
     keeping business logic separate from views and repositories.
     """
     
-    def __init__(self):
-        self.repository = TaskRepository()
+    def __init__(self, user: User = None):
+        self.repository = TaskRepository(user=user)
     
     def get_all_tasks(self, filters: Optional[Dict[str, Any]] = None) -> List[Task]:
         """
