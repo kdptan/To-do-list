@@ -7,7 +7,7 @@ operations between the repository and the views.
 
 from typing import Dict, List, Optional, Any
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from .models import Task, Category, Subtask
 from .repositories import TaskRepository, CategoryRepository, SubtaskRepository
 
@@ -135,8 +135,8 @@ class TaskService:
         """Get tasks grouped by date for a specific month."""
         from calendar import monthrange
         
-        first_day = datetime(year, month, 1, tzinfo=timezone.utc)
-        last_day = datetime(year, month, monthrange(year, month)[1], 23, 59, 59, tzinfo=timezone.utc)
+        first_day = datetime(year, month, 1, tzinfo=dt_timezone.utc)
+        last_day = datetime(year, month, monthrange(year, month)[1], 23, 59, 59, tzinfo=dt_timezone.utc)
         
         tasks = self.repository.get_by_date_range(first_day, last_day)
         
